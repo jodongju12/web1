@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mini FPS Fixed 2</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; }
+    canvas { display: block; }
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 24px;
+      pointer-events: none;
+    }
+    #start {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 30px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="start">클릭해서 시작</div>
+<div id="crosshair">+</div>
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let enemies = [];
+let score = 0;
+let started = false;
+
+// 시작 & 발사
+document.body.addEventListener("click", () => {
+  if (!started) {
+    started = true;
+    document.getElementById("start").style.display = "none";
+  } else {
+    shoot();
+  }
+});
+
+// 적 생성
+setInterval(() => {
+  if (!started) return;
+  enemies.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: 30
+  });
+}, 1000);
+
+// 🔥 핵심 수정된 발사 로직
+function shoot() {
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+
+  enemies = enemies.filter(e => {
+    let dx = e.x - cx;
+    let dy = e.y - cy;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+
+    // 맞은 적 제거
+    if (dist < e.size) {
+      score++;
+      return false;
+    }
+    return true;
+  });
+}
+
+// 게임 루프
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (started) {
+    // 적
+    ctx.fillStyle = "red";
+    enemies.forEach(e => {
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // 점수
+    ctx.fillStyle = "white";
+    ctx.font = "20px Arial";
+    ctx.fillText("Score: " + score, 20, 30);
+  }
+
+  requestAnimationFrame(update);
+}
+
+update();
+</script>
+
+</body>
+</html>
