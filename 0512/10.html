@@ -3,629 +3,468 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini League of Legends</title>
+    <title>Minecraft Boss Raid: The Ender Dragon</title>
     <style>
+        /* 마인크래프트 특유의 투박한 픽셀 폰트 스타일 느낌 구현 */
         body {
-            margin: 0;
-            padding: 0;
-            background-color: #05070a;
-            color: white;
-            font-family: 'Arial', sans-serif;
-            overflow: hidden;
-            user-select: none;
+            margin: 0; padding: 0; background-color: #020205;
+            color: #fff; font-family: 'Courier New', Courier, monospace;
+            overflow: hidden; user-select: none;
         }
 
-        /* 게임 화면 중앙 정렬 */
         #gameContainer {
-            position: relative;
-            width: 1000px;
-            height: 700px;
-            margin: 20px auto;
-            border: 3px solid #c8aa6e; /* 롤 테두리 색상 */
-            box-shadow: 0 0 30px rgba(200, 170, 110, 0.3);
+            position: relative; width: 1000px; height: 650px;
+            margin: 20px auto; border: 6px solid #4a4a4a;
+            background: #090312; box-shadow: 0 0 40px rgba(0,0,0,0.9);
         }
 
-        canvas {
-            display: block;
-            background: #111c24; /* 소환사의 협곡 느낌 어두운 바닥 */
+        canvas { display: block; }
+
+        /* --- 상단 보스 체력바 (마인크래프트 핫핑크 보스바) --- */
+        #bossHpContainer {
+            position: absolute; top: 25px; left: 50%; transform: translateX(-50%);
+            width: 650px; text-align: center; z-index: 5;
+        }
+        #bossName { 
+            font-size: 20px; font-weight: bold; color: #ff55ff; 
+            text-shadow: 2px 2px #550055; margin-bottom: 5px; letter-spacing: 1px;
+        }
+        .boss-bar-bg { width: 100%; height: 14px; background: #330033; border: 2px solid #555555; box-shadow: inset 0 0 5px #000; }
+        #bossHpBar { width: 100%; height: 100%; background: #ff55ff; transition: width 0.05s ease-out; }
+
+        /* --- 하단 마인크래프트 리얼 UI 패널 --- */
+        #minecraftUI {
+            position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 4px; z-index: 5;
+        }
+        
+        /* 하트 수치 및 허기 아이콘 라인 */
+        #statsRow { display: flex; justify-content: space-between; width: 380px; font-size: 18px; font-weight: bold; }
+        #hearts { color: #ff5555; text-shadow: 2px 2px #550000; letter-spacing: -1px; }
+        #hunger { color: #ffaa00; text-shadow: 2px 2px #552200; letter-spacing: -1px; }
+
+        /* 9칸 핫바 인벤토리 인프라 */
+        #hotbar {
+            display: flex; background: #8b8b8b; border: 4px solid #3c3c3c;
+            border-top-color: #f0f0f0; border-left-color: #f0f0f0; padding: 2px; gap: 2px;
+        }
+        .slot {
+            width: 42px; height: 42px; background: #8b8b8b; border: 2px solid #373737;
+            border-top-color: #fff; border-left-color: #fff;
+            display: flex; align-items: center; justify-content: center; font-size: 24px; position: relative;
+        }
+        .slot.active {
+            border: 4px solid #ffffff; width: 38px; height: 38px; background: rgba(255,255,255,0.2);
+        }
+        .slot-key { position: absolute; bottom: 1px; right: 3px; font-size: 10px; color: #ddd; font-weight: bold; }
+
+        /* 단축키 좌측 안내 창 */
+        #guide {
+            position: absolute; top: 20px; left: 20px; background: rgba(0, 0, 0, 0.75);
+            border: 3px solid #555; padding: 12px; font-size: 13px; line-height: 1.6;
         }
 
-        /* 하단 스킬 및 상태 UI */
-        #uiBar {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 80px;
-            background: rgba(1, 10, 19, 0.9);
-            border-top: 2px solid #c8aa6e;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 20px;
-            box-sizing: border-box;
-        }
-
-        .stat-box {
-            font-size: 16px;
-            color: #a09e99;
-        }
-        .stat-box strong { color: #f0e6d2; }
-
-        .skills-container {
-            display: flex;
-            gap: 15px;
-        }
-
-        .skill-slot {
-            width: 50px;
-            height: 50px;
-            border: 2px solid #c8aa6e;
-            background: #03141e;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 18px;
-            color: #00e5ff;
-            border-radius: 4px;
-        }
-
-        .skill-slot .cooldown-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 0%;
-            background: rgba(0, 0, 0, 0.7);
-            transition: height 0.1s linear;
-        }
-
-        .skill-slot .key-hint {
-            position: absolute;
-            top: 2px;
-            left: 4px;
-            font-size: 11px;
-            color: #c8aa6e;
-        }
-
-        /* 게임 오버 / 승리 알림 */
+        /* 앤드게임 결과 팝업 */
         .screen-overlay {
-            display: none;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            text-align: center;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9); text-align: center;
+            flex-direction: column; justify-content: center; align-items: center; z-index: 10;
         }
-
-        .screen-overlay h1 {
-            font-size: 64px;
-            margin-bottom: 20px;
-            letter-spacing: 5px;
-        }
-
-        .victory h1 { color: #00e5ff; text-shadow: 0 0 20px #00e5ff; }
-        .defeat h1 { color: #ff2a2a; text-shadow: 0 0 20px #ff2a2a; }
-
+        .clear-screen h1 { color: #55ff55; font-size: 45px; text-shadow: 3px 3px #005500; }
+        .fail-screen h1 { color: #ff5555; font-size: 45px; text-shadow: 3px 3px #550000; }
         button {
-            padding: 10px 25px;
-            background: #1e2328;
-            border: 2px solid #c8aa6e;
-            color: #c8aa6e;
-            font-size: 18px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.3s;
+            padding: 10px 30px; background: #666; border: 2px solid #aaa; color: #fff;
+            font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px;
         }
-        button:hover {
-            background: #c8aa6e;
-            color: #121212;
-        }
+        button:hover { background: #888; border-color: #fff; }
     </style>
 </head>
 <body>
 
     <div id="gameContainer">
-        <div id="victoryScreen" class="screen-overlay victory">
-            <h1>VICTORY</h1>
-            <button onclick="location.reload()">다시 하기</button>
-        </div>
-        <div id="defeatScreen" class="screen-overlay defeat">
-            <h1>DEFEAT</h1>
-            <button onclick="location.reload()">다시 하기</button>
+        <div id="guide">
+            🕹️ <b>이동:</b> 좌우 방향키 (← , →)<br>
+            🦘 <b>점프:</b> Alt 키 / Space 키<br>
+            🏹 <b>[1] 마법의 활 발사:</b> Ctrl 키<br>
+            ⚔️ <b>[2] 다이아 검 공격:</b> X 키<br>
+            🍎 <b>[3] 황금 사과 섭취:</b> C 키
         </div>
 
-        <canvas id="lolCanvas" width="1000" height="620"></canvas>
+        <div id="bossHpContainer">
+            <div id="bossName">엔더 드래곤 (Ender Dragon)</div>
+            <div class="boss-bar-bg"><div id="bossHpBar"></div></div>
+        </div>
 
-        <div id="uiBar">
-            <div class="stat-box">
-                챔피언: <strong>이즈리얼 (Ezreal)</strong> <span id="levelTxt">[Lv.1]</span><br>
-                CS: <span id="csTxt" style="color:#ffaa00;">0</span> | KILLS: <span id="killTxt" style="color:#ff2a2a;">0</span>
+        <div id="minecraftUI">
+            <div id="statsRow">
+                <div id="hearts">❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️</div>
+                <div id="hunger">🍖🍖🍖🍖🍖🍖🍖🍖🍖🍖</div>
             </div>
-            
-            <div class="skills-container">
-                <div class="skill-slot" id="skillQ">
-                    <span class="key-hint">Q</span> 신비한 화살
-                    <div class="cooldown-overlay" id="cooldownQ"></div>
-                </div>
-                <div class="skill-slot" id="skillR">
-                    <span class="key-hint">R</span> 정조준 일격
-                    <div class="cooldown-overlay" id="cooldownR"></div>
-                </div>
-            </div>
-
-            <div class="stat-box" style="text-align: right;">
-                목표: <strong>적 포탑과 넥서스를 파괴하세요!</strong><br>
-                조종: <span style="color:#00e5ff;">우클릭(이동) / Q, R (스킬 사용)</span>
+            <div id="hotbar">
+                <div id="slot1" class="slot active">🏹<span class="slot-key">Ctrl</span></div>
+                <div id="slot2" class="slot">⚔️<span class="slot-key">X</span></div>
+                <div id="slot3" class="slot">🍎<span class="slot-key">C</span></div>
+                <div class="slot">🧱</div>
+                <div class="slot">🧪</div>
+                <div class="slot">🥩</div>
             </div>
         </div>
+
+        <div id="clearScreen" class="screen-overlay clear-screen">
+            <h1>Minecraft Beat !!</h1>
+            <p style="color: #aaa; font-size: 18px;">엔더 월드의 봉인을 풀고 본국으로 무사히 귀환했습니다.</p>
+            <button onclick="location.reload()">새로운 월드 생성</button>
+        </div>
+        <div id="failScreen" class="screen-overlay fail-screen">
+            <h1>Steve 전사했습니다</h1>
+            <p style="color: #777; font-size: 16px;">소지품을 모두 떨어뜨렸습니다. (아이템 드롭)</p>
+            <button onclick="location.reload()">리스폰 (Respawn)</button>
+        </div>
+
+        <canvas id="minecraftCanvas" width="1000" height="650"></canvas>
     </div>
 
     <script>
-        const canvas = document.getElementById('lolCanvas');
+        const canvas = document.getElementById('minecraftCanvas');
         const ctx = canvas.getContext('2d');
 
-        // 우클릭 메뉴 방지 (롤처럼 우클릭 이동을 쓰기 위함)
-        window.addEventListener('contextmenu', e => e.preventDefault());
-
-        // 게임 상태
         let gameActive = true;
-        let score = { cs: 0, kills: 0 };
         let frameCount = 0;
+        let keys = {};
+        const gravity = 0.6;
 
-        // 마우스 위치 및 클릭 핑 효과용 변수
-        let mousePos = { x: 0, y: 0 };
-        let clickPings = [];
+        let projectiles = [];
+        let damageTexts = [];
+        let dragonAttacks = [];
+        let endermanParticles = [];
 
-        // 마우스 위치 추적
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            mousePos.x = e.clientX - rect.left;
-            mousePos.y = e.clientY - rect.top;
+        // 입력 제어 장치
+        window.addEventListener('keydown', e => {
+            keys[e.key] = true;
+            if (e.key === 'Alt' || e.key === ' ') player.jump();
+            if (e.key === 'Control') { player.switchSlot(1); player.useBow(); }
+            if (e.key.toLowerCase() === 'x') { player.switchSlot(2); player.useSword(); }
+            if (e.key.toLowerCase() === 'c') { player.switchSlot(3); player.useGoldenApple(); }
         });
+        window.addEventListener('keyup', e => keys[e.key] = false);
 
-        // 우클릭으로 이동 명령
-        canvas.addEventListener('mousedown', (e) => {
-            if (!gameActive) return;
-            if (e.button === 2) { // 우클릭
-                player.targetX = mousePos.x;
-                player.targetY = mousePos.y;
-                
-                // 클릭 평(이펙트) 추가
-                clickPings.push({ x: mousePos.x, y: mousePos.y, radius: 2, alpha: 1 });
-            }
-        });
+        // 엔더 월드 전형적인 오브젝트 지형 배치 (엔드스톤 바닥 및 흑요석 기둥)
+        const platforms = [
+            { x: 0, y: 550, w: 1000, h: 40, type: 'endstone' }, 
+            { x: 180, y: 320, w: 90, h: 230, type: 'obsidian' },  // 좌측 흑요석 타워
+            { x: 730, y: 260, w: 90, h: 290, type: 'obsidian' }   // 우측 흑요석 타워
+        ];
 
-        // 키보드 스킬 사용 입력
-        window.addEventListener('keydown', (e) => {
-            if (!gameActive) return;
-            if (e.key.toLowerCase() === 'q') player.useSkillQ();
-            if (e.key.toLowerCase() === 'r') player.useSkillR();
-        });
+        // 흑요석 타워 꼭대기에 상주하는 드래곤 회복용 '엔더 수정'
+        let endCrystals = [
+            { x: 215, y: 285, w: 20, h: 25, alive: true },
+            { x: 765, y: 225, w: 20, h: 25, alive: true }
+        ];
 
-        // 체력바 그리기 공통 함수
-        function drawHealthBar(x, y, width, height, current, max, color = '#22cc22') {
-            ctx.fillStyle = '#333';
-            ctx.fillRect(x - width/2, y, width, height);
-            const hpWidth = Math.max(0, (current / max) * width);
-            ctx.fillStyle = color;
-            ctx.fillRect(x - width/2, y, hpWidth, height);
-            ctx.strokeStyle = '#000';
-            ctx.strokeRect(x - width/2, y, width, height);
+        // 보랏빛 엔더맨 눈 입자 파티클 배경 효과
+        for(let i=0; i<30; i++) {
+            endermanParticles.push({ x: Math.random()*1000, y: Math.random()*550, size: Math.random()*3+1, vy: -(Math.random()*0.8+0.2) });
         }
 
-        // --- 객체 정의 (클래스) ---
-
-        // 1. 플레이어 (챔피언)
-        class Champion {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.targetX = x;
-                this.targetY = y;
-                this.radius = 18;
-                this.speed = 3.5;
-                this.hp = 500;
-                this.maxHp = 500;
-                this.level = 1;
-                this.exp = 0;
-                this.expToNextLevel = 100;
-                
-                // 스킬 쿨타임 관리 (밀리초)
-                this.cooldowns = { Q: 0, R: 0 };
-                this.maxCooldowns = { Q: 800, R: 7000 }; // Q: 0.8초, R: 7초
-            }
+        // --- 플레이어 엔티티 (스티브) ---
+        const player = {
+            x: 480, y: 450, vx: 0, vy: 0, w: 32, h: 56,
+            hp: 20, maxHp: 20, // 마인크래프트 하트 10개 = 반 칸 단위 환산 총 20 HP
+            direction: 1, isGrounded: false, invFrame: 0, appleCd: 0,
 
             update() {
-                // 이동 로직 (목표 지점으로 서서히 이동)
-                const dx = this.targetX - this.x;
-                const dy = this.targetY - this.y;
-                const dist = Math.hypot(dx, dy);
+                if (this.invFrame > 0) this.invFrame--;
+                if (this.appleCd > 0) this.appleCd--;
 
-                if (dist > this.speed) {
-                    this.x += (dx / dist) * this.speed;
-                    this.y += (dy / dist) * this.speed;
+                if (keys['ArrowLeft']) { this.vx = -4.5; this.direction = -1; }
+                else if (keys['ArrowRight']) { this.vx = 4.5; this.direction = 1; }
+                else { this.vx *= 0.7; }
+
+                this.vy += gravity;
+                this.x += this.vx; this.y += this.vy;
+
+                // 지형 충돌 및 발판 체크
+                this.isGrounded = false;
+                for (let plat of platforms) {
+                    if (this.x + this.w > plat.x && this.x < plat.x + plat.w) {
+                        if (this.vy >= 0 && this.y + this.h >= plat.y && this.y + this.h - this.vy <= plat.y + 7) {
+                            this.y = plat.y - this.h; this.vy = 0; this.isGrounded = true; break;
+                        }
+                    }
                 }
+                this.x = Math.max(0, Math.min(canvas.width - this.w, this.x));
 
-                // 쿨타임 감소
-                if (this.cooldowns.Q > 0) this.cooldowns.Q -= 16.66; // 약 1프레임당 ms
-                if (this.cooldowns.R > 0) this.cooldowns.R -= 16.66;
-                
-                // UI 쿨타임 반영
-                document.getElementById('cooldownQ').style.height = `${Math.max(0, (this.cooldowns.Q / this.maxCooldowns.Q) * 100)}%`;
-                document.getElementById('cooldownR').style.height = `${Math.max(0, (this.cooldowns.R / this.maxCooldowns.R) * 100)}%`;
-
-                // 자동 평타 (사거리 내 가장 가까운 적 자동 공격)
-                if (frameCount % 45 === 0) { this.autoAttack(); }
-            }
+                // 하트 UI 실시간 동기화 출력 갱신
+                let heartStr = '';
+                let fullHearts = Math.floor(this.hp / 2);
+                let halfHeart = this.hp % 2;
+                for (let i = 0; i < 10; i++) {
+                    if (i < fullHearts) heartStr += '❤️';
+                    else if (i === fullHearts && halfHeart > 0) heartStr += '💔';
+                    else heartStr += '🖤'; // 잃은 체력 검은 하트 처리
+                }
+                document.getElementById('hearts').innerText = heartStr;
+            },
 
             draw() {
-                // 챔피언 본체
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#00e5ff';
-                ctx.shadowColor = '#00e5ff';
-                ctx.shadowBlur = 10;
-                ctx.fill();
-                ctx.closePath();
-                ctx.shadowBlur = 0;
+                ctx.save();
+                if (this.invFrame % 4 > 2) ctx.globalAlpha = 0.4;
+                
+                // 블록 스타일 스티브(Steve) 렌더링
+                ctx.fillStyle = '#ffdbac'; // 피부색 헤드
+                ctx.fillRect(this.x + 6, this.y, 20, 16);
+                ctx.fillStyle = '#00a3a3'; // 청록색 민소매 상의
+                ctx.fillRect(this.x + 2, this.y + 16, 28, 22);
+                ctx.fillStyle = '#434389'; // 파란색 하의 바지
+                ctx.fillRect(this.x + 4, this.y + 38, 24, 18);
 
-                // 체력바 및 네임태그
-                drawHealthBar(this.x, this.y - 32, 50, 6, this.hp, this.maxHp);
-                ctx.fillStyle = '#fff';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(`Lv.${this.level}`, this.x, this.y - 40);
-            }
+                // 스티브 조준 눈
+                ctx.fillStyle = '#fff'; ctx.fillRect(this.x + (this.direction === 1 ? 18 : 6), this.y + 5, 6, 4);
+                ctx.fillStyle = '#4a0000'; ctx.fillRect(this.x + (this.direction === 1 ? 21 : 6), this.y + 5, 3, 4);
+                ctx.restore();
+            },
 
-            autoAttack() {
-                let target = null;
-                let minDist = 200; // 평타 사거리
+            jump() { if (this.isGrounded) { this.vy = -12; this.isGrounded = false; } },
 
-                // 미니언 중 타겟 탐색
-                minions.forEach(m => {
-                    let d = Math.hypot(m.x - this.x, m.y - this.y);
-                    if (d < minDist) { minDist = d; target = m; }
+            switchSlot(idx) {
+                document.querySelectorAll('.slot').forEach(s => s.classList.remove('active'));
+                document.getElementById(`slot${idx}`).classList.add('active');
+            },
+
+            useBow() {
+                let aX = this.direction === 1 ? this.x + this.w + 2 : this.x - 12;
+                projectiles.push(new MinecraftArrow(aX, this.y + 20, this.direction));
+            },
+
+            useSword() {
+                // 다이아몬드 검 휘두르기 근접 타격 연산
+                let range = 65;
+                let hitBoss = false;
+                if (boss.hp > 0 && boss.x < this.x + this.w + range && boss.x + boss.w > this.x - range &&
+                    boss.y < this.y + this.h + range && boss.y + boss.h > this.y - range) {
+                    boss.hit(18 + Math.floor(Math.random()*6)); // 칼빵 대미지 주입
+                    hitBoss = true;
+                }
+                // 주변 엔더 수정 근접 타격 제거 판정
+                endCrystals.forEach(cry => {
+                    if(cry.alive && Math.hypot((this.x+this.w/2) - cry.x, (this.y+this.h/2) - cry.y) < range + 20) {
+                        cry.alive = false;
+                        damageTexts.push(new PixelDamageText(cry.x, cry.y, "수정 파괴!!", "#ff55ff"));
+                    }
                 });
-                // 타워가 사거리 내에 있으면 타워 우선 공격 가능
-                if (!target && turret && Math.hypot(turret.x - this.x, turret.y - this.y) < 250) target = turret;
-                if (!target && nexus && Math.hypot(nexus.x - this.x, nexus.y - this.y) < 250) target = nexus;
+            },
 
-                if (target) {
-                    const angle = Math.atan2(target.y - this.y, target.x - this.x);
-                    projectiles.push(new Projectile(this.x, this.y, angle, 7, 15, '#ffaa00', 'player_aa'));
-                }
+            useGoldenApple() {
+                if(this.appleCd > 0) return;
+                this.hp = Math.min(this.maxHp, this.hp + 6); // 체력 하트 3칸 회복
+                this.appleCd = 180; // 3초 쿨타임
+                damageTexts.push(new PixelDamageText(this.x + this.w/2, this.y - 15, "재생 효과 (🍎)", "#ffaa00"));
+            },
+
+            takeDamage(dmg) {
+                if (this.invFrame > 0 || !gameActive) return;
+                this.hp -= dmg;
+                this.invFrame = 50; // 피격 무적 시간 단축 고증
+                damageTexts.push(new PixelDamageText(this.x + this.w/2, this.y - 10, `-${dmg}`, '#ff5555'));
+                if (this.hp <= 0) endGame(false);
             }
+        };
 
-            useSkillQ() {
-                if (this.cooldowns.Q <= 0) {
-                    const angle = Math.atan2(mousePos.y - this.y, mousePos.x - this.x);
-                    projectiles.push(new Projectile(this.x, this.y, angle, 12, 40, '#00e5ff', 'player_q', 400));
-                    this.cooldowns.Q = this.maxCooldowns.Q;
-                }
-            }
-
-            useSkillR() {
-                if (this.cooldowns.R <= 0) {
-                    const angle = Math.atan2(mousePos.y - this.y, mousePos.x - this.x);
-                    // 거대하고 강력한 투사체 (관통형태로 구현하기 위해 데미지 로직 조정)
-                    projectiles.push(new Projectile(this.x, this.y, angle, 9, 150, '#ff00aa', 'player_r', 800));
-                    this.cooldowns.R = this.maxCooldowns.R;
-                }
-            }
-
-            gainExp(amount) {
-                this.exp += amount;
-                if (this.exp >= this.expToNextLevel) {
-                    this.level++;
-                    this.exp -= this.expToNextLevel;
-                    this.maxHp += 80;
-                    this.hp = this.maxHp; // 레벨업 시 풀피
-                    document.getElementById('levelTxt').innerText = `[Lv.${this.level}]`;
-                }
-            }
-        }
-
-        // 2. 투사체 (평타, 스킬, 포탑 공격)
-        class Projectile {
-            constructor(x, y, angle, speed, damage, color, type, range = 300) {
-                this.x = x;
-                this.y = y;
-                this.startX = x;
-                this.startY = y;
-                this.vx = Math.cos(angle) * speed;
-                this.vy = Math.sin(angle) * speed;
-                this.damage = damage;
-                this.color = color;
-                this.type = type; // 'player_aa', 'player_q', 'player_r', 'turret'
-                this.range = range;
-                this.radius = type === 'player_r' ? 15 : 5;
-                this.active = true;
-            }
-
+        // --- 마인크래프트 활 투사체 (화살) ---
+        class MinecraftArrow {
+            constructor(x, y, dir) { this.x = x; this.y = y; this.vx = dir * 15; this.w = 12; this.h = 4; this.active = true; }
             update() {
                 this.x += this.vx;
-                this.y += this.vy;
+                if (this.x < 0 || this.x > canvas.width) this.active = false;
 
-                // 사거리 이탈 시 제거
-                if (Math.hypot(this.x - this.startX, this.y - this.startY) > this.range) {
+                // 엔더 드래곤 타격 판정
+                if (this.active && boss.hp > 0 && this.x + this.w > boss.x && this.x < boss.x + boss.w &&
+                    this.y + this.h > boss.y && this.y < boss.y + boss.h) {
+                    boss.hit(11 + Math.floor(Math.random()*4));
+                    this.active = false;
+                }
+
+                // 엔더 수정 저격 판정 고증
+                endCrystals.forEach(cry => {
+                    if (this.active && cry.alive && this.x + this.w > cry.x && this.x < cry.x + cry.w &&
+                        this.y + this.h > cry.y && this.y < cry.y + cry.h) {
+                        cry.alive = false;
+                        this.active = false;
+                        damageTexts.push(new PixelDamageText(cry.x, cry.y, "💥 수정 격파!", "#ff55ff"));
+                    }
+                });
+            }
+            draw() { ctx.fillStyle = '#ddd'; ctx.fillRect(this.x, this.y, this.w, this.h); }
+        }
+
+        // --- 월드 보스: 엔더 드래곤 (Ender Dragon) ---
+        const boss = {
+            x: 400, y: 80, w: 180, h: 90,
+            hp: 350, maxHp: 350,
+            angle: 0, flash: 0, fireTimer: 90,
+
+            update() {
+                if (this.hp <= 0) return;
+                if (this.flash > 0) this.flash--;
+
+                // 엔더 드래곤 특유의 공중 선회 호버링 궤적 움직임 인공지능
+                this.angle += 0.025;
+                this.x = 410 + Math.sin(this.angle) * 280;
+                this.y = 90 + Math.cos(this.angle * 2) * 35;
+
+                // 실시간 살아있는 엔더 수정으로부터 체력 힐링 빨대 수급 버프 연산
+                endCrystals.forEach(cry => {
+                    if(cry.alive && frameCount % 40 === 0) {
+                        this.hp = Math.min(this.maxHp, this.hp + 4);
+                        document.getElementById('bossHpBar').style.width = `${(this.hp / this.maxHp) * 100}%`;
+                    }
+                });
+
+                // 브레스/화염구 투하 패턴 가동
+                this.fireTimer--;
+                if(this.fireTimer <= 0) {
+                    dragonAttacks.push(new DragonFireball(this.x + this.w/2, this.y + this.h));
+                    this.fireTimer = 100 + Math.random()*50;
+                }
+            },
+
+            draw() {
+                if (this.hp <= 0) return;
+
+                // 엔더 수정에서 드래곤으로 이어지는 힐링 빔 라인 실시간 출력 시각화
+                endCrystals.forEach(cry => {
+                    if(cry.alive) {
+                        ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = '#ff55ff';
+                        ctx.beginPath(); ctx.moveTo(cry.x + cry.w/2, cry.y); ctx.lineTo(this.x + this.w/2, this.y + this.h/2);
+                        ctx.stroke(); ctx.restore();
+                    }
+                });
+
+                ctx.save();
+                if(this.flash > 0 && this.flash % 2 === 0) ctx.fillStyle = '#ff5555'; // 피격 시 벌겋게 달아오르는 이펙트
+                else ctx.fillStyle = '#191919'; // 드래곤 검은 바디 스킨
+
+                // 각진 블록형 드래곤 바디 프레임 구조화
+                ctx.fillRect(this.x, this.y, this.w, this.h);
+                ctx.fillStyle = '#111111'; // 날개 부속 박스
+                ctx.fillRect(this.x - 40, this.y + 20, 40, 25);
+                ctx.fillRect(this.x + this.w, this.y + 20, 40, 25);
+
+                // 빛나는 드래곤의 보라색 눈빛 
+                ctx.fillStyle = '#ff55ff';
+                ctx.fillRect(this.x + 20, this.y + 35, 8, 8);
+                ctx.fillRect(this.x + this.w - 28, this.y + 35, 8, 8);
+                ctx.restore();
+            },
+
+            hit(dmg) {
+                this.hp -= dmg; this.flash = 12;
+                damageTexts.push(new PixelDamageText(this.x + this.w/2, this.y + 30, dmg, '#ffffff'));
+                document.getElementById('bossHpBar').style.width = `${Math.max(0, (this.hp / this.maxHp) * 100)}%`;
+                if (this.hp <= 0) endGame(true);
+            }
+        };
+
+        // --- 보스 공격 패턴: 드래곤 화염구 (보라색 잔류 브레스) ---
+        class DragonFireball {
+            constructor(x, y) { this.x = x; this.y = y; this.vy = 4.5; this.vx = (player.x - x) * 0.012; this.w = 20; this.h = 20; this.active = true; }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                if(this.y > 540) this.active = false; // 지면에 닿으면 소멸
+
+                // 스티브 본체 피격 판정 검사
+                let d = Math.hypot((this.x+this.w/2) - (player.x+player.w/2), (this.y+this.h/2) - (player.y+player.h/2));
+                if(this.active && d < 28) {
+                    player.takeDamage(4); // 화염 대미지 (하트 2칸 증발)
                     this.active = false;
                 }
             }
-
             draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.shadowColor = this.color;
-                ctx.shadowBlur = this.radius * 2;
-                ctx.fill();
-                ctx.closePath();
-                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#ff00ff'; ctx.fillRect(this.x, this.y, this.w, this.h);
+                ctx.fillStyle = '#550055'; ctx.fillRect(this.x+4, this.y+4, this.w-8, this.h-8);
             }
         }
 
-        // 3. 적 미니언
-        class Minion {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.radius = 12;
-                this.speed = 1.2;
-                this.hp = 90;
-                this.maxHp = 90;
-                this.damage = 8;
+        // --- 마인크래프트 고유 투박한 폰트 플로팅 대미지 스킨 ---
+        class PixelDamageText {
+            constructor(x, y, text, color) {
+                this.x = x + (Math.random()-0.5)*40; this.y = y; this.text = text; this.color = color; this.life = 45;
             }
-
-            update() {
-                // 플레이어를 향해 걸어옴
-                const dx = player.x - this.x;
-                const dy = player.y - this.y;
-                const dist = Math.hypot(dx, dy);
-
-                if (dist > 40) { // 플레이어 근처까지 이동
-                    this.x += (dx / dist) * this.speed;
-                    this.y += (dy / dist) * this.speed;
-                } else {
-                    // 초근접 시 플레이어 공격
-                    if (frameCount % 60 === 0) {
-                        player.hp -= this.damage;
-                    }
-                }
-            }
-
+            update() { this.y -= 0.8; this.life--; }
             draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#ff4444';
-                ctx.fill();
-                ctx.closePath();
-
-                drawHealthBar(this.x, this.y - 20, 24, 4, this.hp, this.maxHp, '#ff4444');
+                ctx.save(); ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center';
+                ctx.fillStyle = '#000000'; ctx.fillText(this.text, this.x + 2, this.y + 2); // 픽셀화 섀도우 효과 고증
+                ctx.fillStyle = this.color; ctx.fillText(this.text, this.x, this.y); ctx.restore();
             }
         }
 
-        // 4. 적 포탑 (타워)
-        class Turret {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.radius = 35;
-                this.hp = 800;
-                this.maxHp = 800;
-                this.range = 220;
-                this.fireRate = 60; // 1초에 한 번 사격
-                this.cooldown = 0;
-            }
-
-            update() {
-                if (this.cooldown > 0) this.cooldown--;
-
-                // 사거리 내 플레이어가 있으면 공격
-                const dist = Math.hypot(player.x - this.x, player.y - this.y);
-                if (dist < this.range && this.cooldown === 0) {
-                    const angle = Math.atan2(player.y - this.y, player.x - this.x);
-                    projectiles.push(new Projectile(this.x, this.y, angle, 5, 45, '#ff1111', 'turret', this.range + 50));
-                    this.cooldown = this.fireRate;
-                }
-            }
-
-            draw() {
-                // 사정거리 가이드라인 (플레이어가 근처에 오면 붉은색 활성화)
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.range, 0, Math.PI * 2);
-                ctx.strokeStyle = Math.hypot(player.x - this.x, player.y - this.y) < this.range ? 'rgba(255,0,0,0.2)' : 'rgba(255,255,255,0.05)';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                ctx.closePath();
-
-                // 포탑 외형
-                ctx.fillStyle = '#4a5568';
-                ctx.fillRect(this.x - 25, this.y - 25, 50, 50);
-                ctx.fillStyle = '#2d3748';
-                ctx.fillRect(this.x - 15, this.y - 15, 30, 30);
-
-                // 체력바
-                drawHealthBar(this.x, this.y - 40, 70, 8, this.hp, this.maxHp, '#ff2a2a');
-                ctx.fillStyle = '#fff';
-                ctx.font = '11px Arial';
-                ctx.fillText("적 포탑", this.x, this.y - 45);
-            }
+        function endGame(isVictory) {
+            gameActive = false;
+            if (isVictory) document.getElementById('clearScreen').style.display = 'flex';
+            else document.getElementById('failScreen').style.display = 'flex';
         }
 
-        // 5. 적 넥서스 (최종 기지)
-        class Nexus {
-            constructor(x, y) {
-                this.x = x;
-                this.y = y;
-                this.radius = 45;
-                this.hp = 1200;
-                this.maxHp = 1200;
-            }
-            draw() {
-                ctx.beginPath();
-                // 다각형 넥서스 모양 그리기
-                ctx.moveTo(this.x, this.y - this.radius);
-                ctx.lineTo(this.x + this.radius, this.y);
-                ctx.lineTo(this.x, this.y + this.radius);
-                ctx.lineTo(this.x - this.radius, this.y);
-                ctx.closePath();
-                ctx.fillStyle = '#8a0000';
-                ctx.fill();
-                ctx.strokeStyle = '#ff0055';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-
-                drawHealthBar(this.x, this.y - 60, 90, 10, this.hp, this.maxHp, '#ff2a2a');
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 13px Arial';
-                ctx.fillText("적 넥서스", this.x, this.y - 65);
-            }
-        }
-
-        // --- 인스턴스 생성 및 초기화 ---
-        const player = new Champion(850, 500); // 아군 기지 위치 (우하단)
-        let turret = new Turret(450, 280);     // 중앙 포탑
-        let nexus = new Nexus(150, 120);       // 적 본진 (좌상단)
-        
-        let minions = [];
-        let projectiles = [];
-
-        // 미니언 스폰 스케줄러 (적 본진에서 리스폰되어 개떼처럼 내려옴)
-        function spawnMinions() {
-            if (!gameActive) return;
-            for(let i=0; i<3; i++) {
-                // 약간의 오차를 두고 스폰
-                minions.push(new Minion(nexus.x + (Math.random()-0.5)*40, nexus.y + (Math.random()-0.5)*40));
-            }
-        }
-        setInterval(spawnMinions, 6000); // 6초마다 한 웨이브(3마리) 스폰
-        spawnMinions(); // 시작하자마자 첫 웨이브
-
-        // --- 메인 게임 루프 ---
+        // --- 메인 드라이빙 시뮬레이션 루프 ---
         function loop() {
             if (!gameActive) return;
             frameCount++;
 
-            // 1. 화면 초기화
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 지형 그래픽 효과 (본진 영역 구분선 간단히)
-            ctx.strokeStyle = 'rgba(200, 170, 110, 0.1)';
-            ctx.lineWidth = 5;
-            ctx.strokeRect(10, 10, canvas.width-20, canvas.height-20);
-
-            // 2. 우클릭 핑 애니메이션 관리 및 드로잉
-            clickPings.forEach((ping, index) => {
-                ctx.beginPath();
-                ctx.arc(ping.x, ping.y, ping.radius, 0, Math.PI * 2);
-                ctx.strokeStyle = `rgba(0, 255, 100, ${ping.alpha})`;
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                ctx.closePath();
-                
-                ping.radius += 1.5;
-                ping.alpha -= 0.05;
-                if (ping.alpha <= 0) clickPings.splice(index, 1);
+            // 1. 엔더맨 입자 파티클 배경 구동
+            endermanParticles.forEach(p => {
+                p.y += p.vy; if(p.y < 0) p.y = 540;
+                ctx.fillStyle = 'rgba(255, 85, 255, 0.6)'; ctx.fillRect(p.x, p.y, p.size, p.size);
             });
 
-            // 3. 플레이어 업데이트
+            // 2. 월드 지형 블록 출력 (엔드스톤 / 흑요석 기둥)
+            platforms.forEach(plat => {
+                if(plat.type === 'endstone') ctx.fillStyle = '#deecb0'; // 연노랑 엔드스톤 색
+                else ctx.fillStyle = '#140c22'; // 흑자색 흑요석 색
+                ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+                
+                // 블록 가두리 경계선 격자 처리 고증
+                ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 3; ctx.strokeRect(plat.x, plat.y, plat.w, plat.h);
+            });
+
+            // 3. 엔더 수정 타워 상단 오브젝트 배치 렌더링
+            endCrystals.forEach(cry => {
+                if(!cry.alive) return;
+                // 돌고 있는 수정을 픽셀화 다이아몬드형 사각형으로 입체 드로우
+                ctx.save(); ctx.translate(cry.x + cry.w/2, cry.y + cry.h/2);
+                ctx.rotate(frameCount * 0.04); ctx.fillStyle = '#ff55ff';
+                ctx.fillRect(-cry.w/2, -cry.h/2, cry.w, cry.h);
+                ctx.strokeStyle = '#ffffff'; ctx.strokeRect(-cry.w/2, -cry.h/2, cry.w, cry.h); ctx.restore();
+            });
+
+            // 4. 스티브 엔티티 로직 가동
             player.update();
             player.draw();
 
-            // 패배 조건 검사
-            if (player.hp <= 0) {
-                gameActive = false;
-                document.getElementById('defeatScreen').style.display = 'flex';
-            }
+            // 5. 엔더 드래곤 보스 인공지능 가동
+            boss.update();
+            boss.draw();
 
-            // 4. 적 타워 & 넥서스 업데이트
-            if (turret) {
-                turret.update();
-                turret.draw();
-                if (turret.hp <= 0) {
-                    turret = null; // 타워 파괴
-                    score.kills++;
-                    player.gainExp(150);
-                }
-            }
-            if (nexus) {
-                nexus.draw();
-                if (nexus.hp <= 0) {
-                    gameActive = false; // 승리
-                    document.getElementById('victoryScreen').style.display = 'flex';
-                }
-            }
-
-            // 5. 미니언 업데이트
-            minions.forEach((minion, mIdx) => {
-                minion.update();
-                minion.draw();
-
-                // 미니언 사망 처리
-                if (minion.hp <= 0) {
-                    minions.splice(mIdx, 1);
-                    score.cs++;
-                    player.gainExp(35); // 경험치 획득
-                    document.getElementById('csTxt').innerText = score.cs;
-                }
+            // 6. 유저 발사 화살 역학 제어
+            projectiles.forEach((proj, idx) => {
+                proj.update(); if(proj.active) proj.draw(); else projectiles.splice(idx, 1);
             });
 
-            // 6. 투사체 업데이트 및 충돌 체크
-            projectiles.forEach((proj, pIdx) => {
-                proj.update();
-                proj.draw();
+            // 7. 보스 화염구 패턴 물리 처리
+            dragonAttacks.forEach((atk, idx) => {
+                atk.update(); if(atk.active) atk.draw(); else dragonAttacks.splice(idx, 1);
+            });
 
-                if (!proj.active) {
-                    projectiles.splice(pIdx, 1);
-                    return;
-                }
-
-                // 6-1. 플레이어 투사체가 적에게 맞는 경우
-                if (proj.type.startsWith('player')) {
-                    // 미니언 충돌
-                    minions.forEach(minion => {
-                        if (Math.hypot(proj.x - minion.x, proj.y - minion.y) < minion.radius + proj.radius) {
-                            minion.hp -= proj.damage;
-                            if (proj.type !== 'player_r') proj.active = false; // 궁극기(R)는 모든 적을 관통함!
-                        }
-                    });
-
-                    // 포탑 충돌 (앞에 타워가 깨져야 넥서스 타격 가능하게 롤 룰 적용)
-                    if (turret && Math.hypot(proj.x - turret.x, proj.y - turret.y) < turret.radius + proj.radius) {
-                        turret.hp -= proj.damage;
-                        if (proj.type !== 'player_r') proj.active = false;
-                    } 
-                    // 넥서스 충돌
-                    else if (!turret && nexus && Math.hypot(proj.x - nexus.x, proj.y - nexus.y) < nexus.radius + proj.radius) {
-                        nexus.hp -= proj.damage;
-                        if (proj.type !== 'player_r') proj.active = false;
-                    }
-                } 
-                // 6-2. 포탑 투사체가 플레이어에게 맞는 경우
-                else if (proj.type === 'turret') {
-                    if (Math.hypot(proj.x - player.x, proj.y - player.y) < player.radius + proj.radius) {
-                        player.hp -= proj.damage;
-                        proj.active = false;
-                    }
-                }
-
-                // 비활성화된 투사체 정리
-                if (!proj.active) projectiles.splice(pIdx, 1);
+            // 8. 픽셀 대미지 텍스트 출력
+            damageTexts.forEach((txt, idx) => {
+                txt.update(); if(txt.life > 0) txt.draw(); else damageTexts.splice(idx, 1);
             });
 
             requestAnimationFrame(loop);
         }
 
-        // 게임 시작
+        // 인게임 초기가동 동기화 실행
+        document.getElementById('bossHpBar').style.width = '100%';
         loop();
     </script>
 </body>
