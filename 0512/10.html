@@ -3,319 +3,440 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KOPRULU SECTOR : BROOD WAR</title>
+    <title>PUBG 3D Battlegrounds Web Prototype</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;800&display=swap');
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Orbitron', sans-serif; user-select: none; cursor: crosshair; }
-        #gameCanvas { display: block; width: 100vw; height: 100vh; background: #1a1a1a; }
-        #gameCanvas {
-            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Noto+Sans+KR:wght@500;900&display=swap');
+
+        body {
+            margin: 0; padding: 0; background-color: #0b0e14; overflow: hidden;
+            font-family: 'Noto Sans KR', sans-serif; user-select: none; color: #fff;
         }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; padding: 20px; box-sizing: border-box; display: flex; justify-content: space-between; }
-        .panel { background: rgba(10, 20, 30, 0.8); border: 2px solid #0aa; padding: 15px; color: #0ff; box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); }
-        #gameOver { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 2px solid #f00; padding: 40px; text-align: center; color: #f00; z-index: 100; }
-        .btn { background: #200; color: #f00; border: 1px solid #f00; padding: 10px 20px; font-family: 'Orbitron'; font-size: 18px; cursor: pointer; }
-        .btn:hover { background: #f00; color: #000; }
+
+        #gameWrapper {
+            position: relative; width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            background: #11141a;
+        }
+
+        canvas {
+            background-color: #0f1115;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.9);
+            display: block;
+        }
+
+        /* --- 배틀그라운드 스타일 HUD --- */
+        #hud-layer {
+            position: absolute; width: 100%; height: 100%; top: 0; left: 0; pointer-events: none;
+        }
+
+        /* 생존 정보 & 조작 가이드 (우측 상단) */
+        .pubg-panel {
+            position: absolute; top: 30px; right: 30px;
+            background: rgba(11, 14, 19, 0.85); border: 2px solid #f2a900;
+            padding: 15px; font-size: 14px; border-radius: 2px; line-height: 1.6;
+            box-shadow: 0 0 15px rgba(242, 169, 0, 0.2);
+        }
+
+        /* 배그 시그니처 나침반 (상단 중앙) */
+        .compass-bar {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            width: 400px; height: 30px; background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0));
+            border-bottom: 2px solid rgba(255,255,255,0.6);
+            display: flex; justify-content: center; align-items: flex-end;
+            font-family: 'Oswald', sans-serif; font-size: 16px; letter-spacing: 2px;
+        }
+
+        /* 미니맵 (좌측 하단) */
+        #minimap-box {
+            position: absolute; bottom: 30px; left: 30px;
+            width: 150px; height: 150px; background: rgba(0,0,0,0.7);
+            border: 3px solid #343a40; border-radius: 4px; overflow: hidden;
+        }
+
+        /* 하단 중앙 플레이어 헬스 바 */
+        .player-status {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            width: 450px; display: flex; flex-direction: column; gap: 4px;
+        }
+        .hp-bar-bg { width: 100%; height: 10px; background: rgba(0,0,0,0.5); border: 1px solid #555; }
+        .hp-bar-fill { height: 100%; background: #ffffff; width: 100%; }
+        .boost-bar-fill { height: 4px; background: #f2a900; width: 60%; margin-top: 2px; }
+
+        .weapon-info {
+            align-self: flex-end; font-family: 'Oswald', sans-serif;
+            font-size: 22px; color: #fff; text-shadow: 2px 2px 4px #000;
+        }
+
+        /* 정중앙 크로스헤어 */
+        #pubg-crosshair {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 16px; height: 16px; transition: all 0.1s;
+        }
+        .ch-line { position: absolute; background: rgba(255,255,255,0.8); }
+        .ch-v { width: 2px; height: 16px; left: 7px; top: 0; }
+        .ch-h { width: 16px; height: 2px; left: 0; top: 7px; }
     </style>
 </head>
 <body>
-    <div id="ui-layer">
-        <div class="panel" id="scoreBoard">TACTICAL VIEW<br><span style="color:#fff; font-size:14px;">WAVE: <span id="waveTxt">1</span> | KILLS: <span id="killTxt">0</span></span></div>
-        <div class="panel" style="text-align: right; color:#aaa; font-size:14px;">
-            <strong style="color:#f04;">[경고]</strong> 맹독충(초록색) 접근 주의<br>
-            메딕(흰색) 자동 치유 / 탱크(회색) 광역 포격
+
+    <div id="gameWrapper">
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="hud-layer">
+            <div id="pubg-crosshair">
+                <div class="ch-line ch-v"></div>
+                <div class="ch-line ch-h"></div>
+            </div>
+
+            <div class="compass-bar" id="compassText">N . . . 15 . . . 30 . . . NE</div>
+
+            <div class="pubg-panel">
+                <span style="color: #f2a900; font-size: 16px; font-weight: 900; font-family: 'Oswald';">BATTLEGROUNDS REAL-3D</span><br>
+                • 이동: <b style="color:#fff;">W, A, S, D</b><br>
+                • 시점 회전: <b style="color:#fff;">←, → (방향키)</b><br>
+                • 사격: <b style="color:#ff4655;">Spacebar (스페이스바)</b><br>
+                • [Shift] 정조준 (ADS): <b style="color:#f2a900;">시야 확대 및 낙차 계산 조준</b><br>
+                <span style="color:#aaa; font-size:12px; display:block; margin-top:5px;">※ 탄도학 엔진 적용: 거리가 멀수록 총알이 중력에 의해 아래로 떨어집니다.</span>
+            </div>
+
+            <div id="minimap-box">
+                <canvas id="minimapCanvas" width="150" height="150"></canvas>
+            </div>
+
+            <div class="player-status">
+                <div class="weapon-info"><span style="color:#f2a900;">5.56mm</span> M416 [연사]</div>
+                <div class="hp-bar-bg"><div class="hp-bar-fill"></div></div>
+                <div class="boost-bar-fill"></div>
+                <div style="font-size:12px; font-weight:bold; color:#fff; letter-spacing:1px; margin-top:2px;">PLAYERUNKNOWN</div>
+            </div>
         </div>
     </div>
-    <div id="gameOver">
-        <h1>SQUAD WIPED OUT</h1>
-        <button class="btn" onclick="location.reload()">REDEPLOY SQUAD</button>
-    </div>
-    <canvas id="gameCanvas"></canvas>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.addEventListener('resize', resize); resize();
+        const mCanvas = document.getElementById('minimapCanvas');
+        const mCtx = mCanvas.getContext('minimapCanvas')?.getContext('2d') || mCanvas.getContext('2d');
 
-        const getDist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
-        const getAngle = (x1, y1, x2, y2) => Math.atan2(y2 - y1, x2 - x1);
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
 
-        let gameActive = true, kills = 0, wave = 1, frameCount = 0;
-        let isSelecting = false, startX = 0, startY = 0, currentX = 0, currentY = 0;
+        // --- 플레이어 및 물리 환경 물리량 변수 ---
+        let keys = {};
+        let player = { x: 0, z: 30, yaw: 0, speed: 5, adsMode: false, fovScale: 450 };
         
-        let units = [], enemies = [], bullets = [], particles = [], healBeams = [], moveCommands = [];
+        // 원거리 사격 표적용 가상 에네미 (배그 고유 기밀 더미)
+        let targets = [
+            { x: -5, z: -30, hp: 100, maxHp: 100, r: 1.0, h: 3.2, color: '#d97706' },
+            { x: 12, z: -65, hp: 100, maxHp: 100, r: 1.0, h: 3.2, color: '#d97706' }, // 초원거리 저격 타겟
+            { x: -25, z: -100, hp: 100, maxHp: 100, r: 1.0, h: 3.2, color: '#d97706' } // 울트라 원거리 타겟
+        ];
 
-        canvas.addEventListener('contextmenu', e => e.preventDefault());
-        canvas.addEventListener('mousedown', e => {
-            if (!gameActive) return;
-            if (e.button === 0) { isSelecting = true; startX = e.clientX; startY = e.clientY; currentX = e.clientX; currentY = e.clientY; }
-            else if (e.button === 2) {
-                moveCommands.push({ x: e.clientX, y: e.clientY, life: 20 });
-                units.forEach(u => { if (u.selected) u.setTarget(e.clientX, e.clientY); });
+        let bullets = [];
+        let particles = [];
+        let fireCooldown = 0;
+        const GRAVITY = 9.8; // 탄도학 낙차용 실시간 중력 상수값
+
+        // 3D 전장 내 엄폐물(바위, 가문비나무) 데이터셋 생성
+        let mapObjects = [];
+        for(let i=0; i<25; i++) {
+            mapObjects.push({
+                x: (Math.random() - 0.5) * 120,
+                z: (Math.random() - 0.5) * 150 - 30,
+                r: 1.8 + Math.random()*2, h: 4 + Math.random()*6,
+                color: Math.random() > 0.5 ? '#4b5320' : '#4a4a4a' // 국방색 나무 혹은 바위색
+            });
+        }
+
+        window.addEventListener('keydown', e => { keys[e.code] = true; });
+        window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+        // --- 1인칭 전용 3D 투영 연산 함수 ---
+        const camY = 1.7; // 배틀그라운드 캐릭터 평균 서 있는 눈높이 시점
+
+        function project3D(x, y, z) {
+            let cCos = Math.cos(-player.yaw - Math.PI/2);
+            let cSin = Math.sin(-player.yaw - Math.PI/2);
+
+            let dx = x - player.x;
+            let dy = y - camY;
+            let dz = z - player.z;
+
+            let rotX = dx * cCos - dz * cSin;
+            let rotZ = dx * cSin + dz * cCos;
+
+            if (rotZ <= 0.3) return null; // 시야각 후방 제한 차단
+
+            // 정조준(ADS) 시 fovScale이 가변 분해되어 화면 중앙이 확대 투영됨
+            let screenX = (rotX * player.fovScale) / rotZ + canvas.width / 2;
+            let screenY = (dy * player.fovScale) / rotZ + canvas.height / 2;
+            let size = (player.fovScale / rotZ);
+
+            return { x: screenX, y: screenY, size: size, depth: rotZ };
+        }
+
+        // --- 물리 업데이트 루프 ---
+        function update() {
+            // 1. 방향키 시점 회전 핸들러 및 나침반 각도 연산
+            if (keys['ArrowLeft']) player.yaw += 0.035;
+            if (keys['ArrowRight']) player.yaw -= 0.035;
+            
+            // 나침반 UI 각도 텍스트 변환 반영
+            let degree = Math.floor((player.yaw * (180 / Math.PI)) % 360);
+            if (degree < 0) degree += 360;
+            document.getElementById('compassText').innerText = `▲  ${degree}°  |  ${getCompassDirection(degree)}`;
+
+            // 2. Shift 정조준 (ADS 모드) 고증 매핑
+            if (keys['ShiftLeft']) {
+                player.adsMode = true;
+                player.fovScale = 900; // 배율 조준경 확대 효과 발생
+                player.speed = 2.2;    // 조준 시 이동 속도 저하 디버프 고증
+                document.getElementById('pubg-crosshair').style.transform = 'translate(-50%, -50%) scale(0.6)';
+            } else {
+                player.adsMode = false;
+                player.fovScale = 450; // 기본 일반 시야
+                player.speed = 5;
+                document.getElementById('pubg-crosshair').style.transform = 'translate(-50%, -50%) scale(1)';
             }
-        });
-        canvas.addEventListener('mousemove', e => { if (isSelecting) { currentX = e.clientX; currentY = e.clientY; } });
-        canvas.addEventListener('mouseup', e => {
-            if (e.button === 0 && isSelecting) {
-                isSelecting = false;
-                let minX = Math.min(startX, currentX), maxX = Math.max(startX, currentX);
-                let minY = Math.min(startY, currentY), maxY = Math.max(startY, currentY);
-                let isClick = (maxX - minX < 5) && (maxY - minY < 5);
-                units.forEach(u => u.selected = isClick ? (getDist(e.clientX, e.clientY, u.x, u.y) < u.radius + 5) : (u.x > minX && u.x < maxX && u.y > minY && u.y < maxY));
-            }
-        });
 
-        // --- 플레이어 유닛 (Marine, Medic, Tank) ---
-        class Unit {
-            constructor(x, y, type) {
-                this.x = x; this.y = y; this.type = type;
-                this.selected = false; this.isMoving = false; this.targetX = x; this.targetY = y;
-                this.cd = 0;
-                
-                if (type === 'marine') { this.hp = 40; this.maxHp = 40; this.speed = 2.5; this.range = 180; this.cdTime = 12; this.radius = 10; this.color = '#00aaff'; }
-                if (type === 'medic') { this.hp = 60; this.maxHp = 60; this.speed = 2.5; this.range = 150; this.cdTime = 10; this.radius = 10; this.color = '#ffffff'; }
-                if (type === 'tank') { this.hp = 150; this.maxHp = 150; this.speed = 1.2; this.range = 300; this.cdTime = 70; this.radius = 16; this.color = '#888888'; }
+            // WASD 지형 이동 연산
+            let moveX = 0, moveZ = 0;
+            if (keys['KeyW']) { moveX += Math.cos(player.yaw + Math.PI/2); moveZ += Math.sin(player.yaw + Math.PI/2); }
+            if (keys['KeyS']) { moveX -= Math.cos(player.yaw + Math.PI/2); moveZ -= Math.sin(player.yaw + Math.PI/2); }
+            if (keys['KeyA']) { moveX += Math.cos(player.yaw); moveZ += Math.sin(player.yaw); }
+            if (keys['KeyD']) { moveX -= Math.cos(player.yaw); moveZ -= Math.sin(player.yaw); }
+
+            if (moveX !== 0 || moveZ !== 0) {
+                player.x += moveX * player.speed * 0.016;
+                player.z += moveZ * player.speed * 0.016;
             }
 
-            setTarget(tx, ty) { this.targetX = tx + (Math.random()-0.5)*50; this.targetY = ty + (Math.random()-0.5)*50; this.isMoving = true; }
+            // 3. M416 소총 사격 프로세서 (스페이스바 연사)
+            if (fireCooldown > 0) fireCooldown--;
+            if (keys['Space'] && fireCooldown === 0) {
+                // 초기 탄속 및 각도 설정
+                bullets.push({
+                    x: player.x, y: 1.5, z: player.z,
+                    vx: Math.cos(player.yaw + Math.PI/2) * 85, // 고속 탄탄속 고증
+                    vy: 0.8, // 약간 상향 지향 사격 궤적 초기치
+                    vz: Math.sin(player.yaw + Math.PI/2) * 85,
+                    life: 90
+                });
+                fireCooldown = 6; // 연사 딜레이 속도
+            }
 
-            update() {
-                // 군집 회피 (Flocking)
-                let sepX = 0, sepY = 0;
-                units.forEach(other => {
-                    if (other !== this) {
-                        let d = getDist(this.x, this.y, other.x, other.y);
-                        if (d < this.radius * 2.5) {
-                            let angle = getAngle(other.x, other.y, this.x, this.y);
-                            sepX += Math.cos(angle) * (this.radius * 2.5 - d) * 0.1; sepY += Math.sin(angle) * (this.radius * 2.5 - d) * 0.1;
+            // 4. 탄도학 핵심 물리 연산 루프 (Bullet Drop)
+            bullets.forEach((b, bIdx) => {
+                b.x += b.vx * 0.016;
+                b.y += b.vy * 0.016; // 탄도 고도 계산
+                b.z += b.vz * 0.016;
+
+                // 실시간 중력식 낙차 감속 연산 ($vy = vy - g \cdot dt$)
+                b.vy -= GRAVITY * 0.016; 
+                // 공기 저항에 의한 미세 속도 감쇄 공학식
+                b.vx *= 0.995;
+                b.vz *= 0.995;
+
+                b.life--;
+                if (b.life <= 0 || b.y < 0) bullets.splice(bIdx, 1); // 땅에 닿거나 소멸 시 제거
+
+                // 원거리 타겟 피격 크래시 연산
+                targets.forEach(t => {
+                    let dist = Math.hypot(b.x - t.x, b.z - t.z);
+                    // 타겟 반경 안에 들고, 날아가는 총알의 실시간 높이(b.y)가 타겟 키(t.h) 범위 내인지 검증
+                    if (dist < t.r && b.y > 0 && b.y < t.h) {
+                        t.hp -= 35; // 데미지 차감
+                        
+                        // 피격 혈흔 이펙트 파티클 생성
+                        for(let i=0; i<8; i++) {
+                            particles.push({
+                                x: b.x, y: b.y, z: b.z,
+                                vx: (Math.random()-0.5)*6, vy: Math.random()*5, vz: (Math.random()-0.5)*6,
+                                life: 20, color: '#991b1b', size: 0.2
+                            });
+                        }
+                        bullets.splice(bIdx, 1);
+
+                        // 킬 발생 시 재생성 리스폰 체계
+                        if (t.hp <= 0) {
+                            t.x = (Math.random() - 0.5) * 80;
+                            t.z = (Math.random() - 0.5) * 100 - 30;
+                            t.hp = t.maxHp;
                         }
                     }
                 });
-                this.x += sepX; this.y += sepY;
+            });
 
-                if (this.cd > 0) this.cd--;
-
-                if (this.type === 'medic') {
-                    // 메딕: 힐링 AI
-                    let hurtAlly = units.find(u => u !== this && u.hp < u.maxHp && getDist(this.x, this.y, u.x, u.y) < this.range);
-                    if (hurtAlly && this.cd === 0) {
-                        hurtAlly.hp = Math.min(hurtAlly.maxHp, hurtAlly.hp + 5); this.cd = this.cdTime;
-                        healBeams.push({x1: this.x, y1: this.y, x2: hurtAlly.x, y2: hurtAlly.y, life: 10});
-                    }
-                } else {
-                    // 마린 & 탱크: 자동 공격 AI
-                    let nearestEnemy = null; let minDist = this.range;
-                    enemies.forEach(e => { let d = getDist(this.x, this.y, e.x, e.y); if (d < minDist) { minDist = d; nearestEnemy = e; } });
-
-                    if (nearestEnemy && this.cd === 0) {
-                        let angle = getAngle(this.x, this.y, nearestEnemy.x, nearestEnemy.y);
-                        bullets.push(new Bullet(this.x, this.y, angle, false, this.type === 'tank'));
-                        this.cd = this.cdTime;
-                    }
-                }
-
-                // 이동 (적이 사거리에 없거나 공격 쿨타임 중 이동 가능)
-                if (this.isMoving) {
-                    let d = getDist(this.x, this.y, this.targetX, this.targetY);
-                    if (d > this.speed) {
-                        let angle = getAngle(this.x, this.y, this.targetX, this.targetY);
-                        this.x += Math.cos(angle) * this.speed; this.y += Math.sin(angle) * this.speed;
-                    } else this.isMoving = false;
-                }
-                
-                this.x = Math.max(20, Math.min(canvas.width - 20, this.x)); this.y = Math.max(20, Math.min(canvas.height - 20, this.y));
-            }
-
-            draw() {
-                ctx.save(); ctx.translate(this.x, this.y);
-                if (this.selected) {
-                    ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.beginPath();
-                    ctx.ellipse(0, this.radius, this.radius + 6, (this.radius + 6) * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
-                }
-                
-                // 체력바
-                ctx.fillStyle = '#f00'; ctx.fillRect(-12, -20, 24, 4);
-                ctx.fillStyle = '#0f0'; ctx.fillRect(-12, -20, 24 * (this.hp / this.maxHp), 4);
-
-                let lookAngle = this.isMoving ? getAngle(this.x, this.y, this.targetX, this.targetY) : 0;
-                ctx.rotate(lookAngle);
-                
-                if (this.type === 'tank') {
-                    ctx.fillStyle = this.color; ctx.fillRect(-12, -12, 24, 24); // 차체
-                    ctx.fillStyle = '#444'; ctx.fillRect(0, -4, 25, 8); // 주포
-                } else {
-                    ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI * 2); ctx.fill();
-                    if(this.type === 'medic') { ctx.fillStyle = '#f00'; ctx.fillRect(-6, -2, 12, 4); ctx.fillRect(-2, -6, 4, 12); } // 적십자 마크
-                    else { ctx.fillStyle = '#333'; ctx.fillRect(5, -2, 12, 4); } // 소총
-                }
-                ctx.restore();
-            }
+            // 파티클 처리
+            particles.forEach((p, pIdx) => {
+                p.x += p.vx * 0.016; p.y += p.vy * 0.016; p.z += p.vz * 0.016;
+                p.vy -= GRAVITY * 0.016;
+                p.life--;
+                if (p.life <= 0) particles.splice(pIdx, 1);
+            });
         }
 
-        // --- 적 유닛 (Zergling, Hydralisk, Baneling) ---
-        class Enemy {
-            constructor() {
-                let side = Math.random();
-                if (side < 0.25) { this.x = Math.random() * canvas.width; this.y = -20; }
-                else if (side < 0.5) { this.x = canvas.width + 20; this.y = Math.random() * canvas.height; }
-                else if (side < 0.75) { this.x = Math.random() * canvas.width; this.y = canvas.height + 20; }
-                else { this.x = -20; this.y = Math.random() * canvas.height; }
+        // 나침반 방향 문자열 헬퍼
+        function getCompassDirection(deg) {
+            if (deg >= 337 || deg < 23) return "N";
+            if (deg >= 23 && deg < 68) return "NE";
+            if (deg >= 68 && deg < 113) return "E";
+            if (deg >= 113 && deg < 158) return "SE";
+            if (deg >= 158 && deg < 203) return "S";
+            if (deg >= 203 && deg < 248) return "SW";
+            if (deg >= 248 && deg < 293) return "W";
+            return "NW";
+        }
 
-                let rand = Math.random();
-                if (rand < 0.6) this.type = 'zergling';
-                else if (rand < 0.9) this.type = 'hydra';
-                else this.type = 'baneling';
+        // --- 3D 화면 및 미니맵 드로우 루프 ---
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                this.cd = 0;
-                if(this.type === 'zergling') { this.radius = 8; this.speed = 3.5 + wave*0.1; this.hp = 35 + wave*5; this.color = '#f30'; }
-                if(this.type === 'hydra') { this.radius = 12; this.speed = 1.8; this.hp = 80 + wave*10; this.color = '#800080'; this.range = 250; this.cdTime = 60; }
-                if(this.type === 'baneling') { this.radius = 10; this.speed = 2.8 + wave*0.1; this.hp = 30 + wave*5; this.color = '#0f0'; } // 초록색 자폭병
-                this.maxHp = this.hp;
+            // 1. 원근감 지형 그리드 라인 렌더링 (사막 미라마 감성 와이어프레임)
+            ctx.strokeStyle = '#2d251e'; ctx.lineWidth = 1;
+            let gridSize = 8;
+            let mapRange = 120;
+            for(let x = -mapRange; x <= mapRange; x += gridSize) {
+                ctx.beginPath();
+                for(let z = -mapRange; z <= mapRange; z += gridSize) {
+                    let p = project3D(x, 0, z);
+                    if (p) {
+                        if (z === -mapRange) ctx.moveTo(p.x, p.y);
+                        else ctx.lineTo(p.x, p.y);
+                    }
+                }
+                ctx.stroke();
             }
 
-            update() {
-                let target = null; let minDist = Infinity;
-                units.forEach(u => { let d = getDist(this.x, this.y, u.x, u.y); if (d < minDist) { minDist = d; target = u; } });
+            // 2. 3D 월드 소팅 정렬 렌더 큐 가동
+            let queue = [];
 
-                if (target) {
-                    let d = getDist(this.x, this.y, target.x, target.y);
+            mapObjects.forEach(obj => {
+                let p = project3D(obj.x, 0, obj.z);
+                if (p) queue.push({ type: 'env', depth: p.depth, data: obj, proj: p });
+            });
+
+            targets.forEach(t => {
+                let p = project3D(t.x, 0, t.z);
+                if (p) queue.push({ type: 'target', depth: p.depth, data: t, proj: p });
+            });
+
+            bullets.forEach(b => {
+                let p = project3D(b.x, b.y, b.z);
+                if (p) queue.push({ type: 'bullet', depth: p.depth, data: b, proj: p });
+            });
+
+            particles.forEach(pt => {
+                let p = project3D(pt.x, pt.y, pt.z);
+                if (p) queue.push({ type: 'particle', depth: p.depth, data: pt, proj: p });
+            });
+
+            queue.sort((a, b) => b.depth - a.depth);
+
+            // 3. 빌드 드로우 페인팅
+            queue.forEach(item => {
+                let p = item.proj;
+
+                if (item.type === 'env') {
+                    let o = item.data;
+                    let w = o.r * p.size;
+                    let h = o.h * p.size;
+                    ctx.fillStyle = o.color;
+                    ctx.fillRect(p.x - w/2, p.y - h, w, h);
+                    ctx.strokeStyle = '#1e1e1e'; ctx.lineWidth = 1;
+                    ctx.strokeRect(p.x - w/2, p.y - h, w, h);
+                }
+
+                else if (item.type === 'target') {
+                    let t = item.data;
+                    let w = t.r * p.size * 1.2;
+                    let h = t.h * p.size;
+                    let posY = p.y - h;
+
+                    // 적 훈련 더미 입체 박스화
+                    ctx.fillStyle = t.color;
+                    ctx.fillRect(p.x - w/2, posY, w, h);
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+                    ctx.strokeRect(p.x - w/2, posY, w, h);
+
+                    // 체력 게이지 헤드업 배치
+                    let barW = w * 1.3;
+                    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - barW/2, posY - 15, barW, 5);
+                    ctx.fillStyle = '#ea580c'; ctx.fillRect(p.x - barW/2, posY - 15, barW * (t.hp / t.maxHp), 5);
                     
-                    if (this.type === 'baneling') {
-                        // 맹독충: 아군 근처 도달 시 자폭 (광역 피해)
-                        if (d < 40) {
-                            createExplosion(this.x, this.y, 70, '#0f0');
-                            units.forEach(u => { if(getDist(this.x, this.y, u.x, u.y) < 70) damageUnit(u, 45); });
-                            this.hp = 0; // 자폭
-                        } else { moveTowards(this, target); }
-                    } else if (this.type === 'hydra') {
-                        // 히드라: 사거리 내 투사체 발사, 아니면 이동
-                        if (d < this.range) {
-                            if (this.cd <= 0) {
-                                bullets.push(new Bullet(this.x, this.y, getAngle(this.x, this.y, target.x, target.y), true));
-                                this.cd = this.cdTime;
-                            }
-                        } else { moveTowards(this, target); }
-                    } else {
-                        // 저글링: 근접 타격
-                        if (d < this.radius + target.radius + 5) {
-                            if (this.cd <= 0) { damageUnit(target, 6); this.cd = 30; }
-                        } else { moveTowards(this, target); }
-                    }
+                    // 거리 미터(m) 실시간 3D 연산 폰트 마킹
+                    ctx.fillStyle = '#9ca3af'; ctx.font = '11px Arial';
+                    ctx.fillText(`${Math.floor(p.depth)}m`, p.x - 10, posY - 25);
                 }
-                if (this.cd > 0) this.cd--;
-            }
 
-            draw() {
-                ctx.save(); ctx.translate(this.x, this.y);
-                let angle = units.length > 0 ? getAngle(this.x, this.y, units[0].x, units[0].y) : 0; ctx.rotate(angle);
-                
-                ctx.fillStyle = this.color;
-                if(this.type === 'baneling') {
-                    // 맥동하는 효과
-                    ctx.shadowBlur = 15; ctx.shadowColor = '#0f0';
-                    ctx.beginPath(); ctx.arc(0, 0, this.radius + Math.sin(frameCount*0.2)*2, 0, Math.PI*2); ctx.fill();
-                } else if(this.type === 'hydra') {
-                    ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-10, 10); ctx.lineTo(-5, 0); ctx.lineTo(-10, -10); ctx.closePath(); ctx.fill();
-                } else {
-                    ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-5, 8); ctx.lineTo(-2, 0); ctx.lineTo(-5, -8); ctx.closePath(); ctx.fill();
+                else if (item.type === 'bullet') {
+                    let size = Math.max(1.5, 0.12 * p.size);
+                    ctx.fillStyle = '#fbbf24'; // 예리한 예광탄 황색 라이팅 효과
+                    ctx.beginPath(); ctx.arc(p.x, p.y, size, 0, Math.PI*2); ctx.fill();
                 }
-                ctx.restore();
-            }
-        }
 
-        function moveTowards(obj, target) {
-            let angle = getAngle(obj.x, obj.y, target.x, target.y);
-            obj.x += Math.cos(angle) * obj.speed; obj.y += Math.sin(angle) * obj.speed;
-        }
-        function damageUnit(u, amt) {
-            u.hp -= amt; spawnParticles(u.x, u.y, '#f00', 3);
-            if (u.hp <= 0 && units.includes(u)) { units.splice(units.indexOf(u), 1); if (units.length === 0) endGame(); }
-        }
-
-        // --- 투사체 (마린 총알, 탱크 포탄, 히드라 독침) ---
-        class Bullet {
-            constructor(x, y, angle, isEnemy=false, isTank=false) {
-                this.x = x; this.y = y; this.vx = Math.cos(angle) * (isTank ? 10 : 15); this.vy = Math.sin(angle) * (isTank ? 10 : 15);
-                this.isEnemy = isEnemy; this.isTank = isTank; this.active = true;
-                this.damage = isTank ? 40 : (isEnemy ? 15 : 6);
-            }
-            update() {
-                this.x += this.vx; this.y += this.vy;
-                if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.active = false;
-
-                if (this.isEnemy) {
-                    for (let u of units) {
-                        if (getDist(this.x, this.y, u.x, u.y) < u.radius + 5) { damageUnit(u, this.damage); this.active = false; break; }
-                    }
-                } else {
-                    for (let i = 0; i < enemies.length; i++) {
-                        let e = enemies[i];
-                        if (getDist(this.x, this.y, e.x, e.y) < e.radius + 5) {
-                            if(this.isTank) {
-                                // 탱크 광역 스플래시 데미지 연산
-                                createExplosion(this.x, this.y, 60, '#fa0');
-                                enemies.forEach(otherE => { if(getDist(this.x, this.y, otherE.x, otherE.y) < 60) { otherE.hp -= this.damage; spawnParticles(otherE.x, otherE.y, otherE.color, 3); } });
-                            } else {
-                                e.hp -= this.damage; spawnParticles(e.x, e.y, e.color, 3);
-                            }
-                            this.active = false; break;
-                        }
-                    }
+                else if (item.type === 'particle') {
+                    let pt = item.data;
+                    let size = Math.max(1, pt.size * p.size);
+                    ctx.fillStyle = pt.color;
+                    ctx.beginPath(); ctx.arc(p.x, p.y, size, 0, Math.PI*2); ctx.fill();
                 }
-            }
-            draw() {
-                ctx.fillStyle = this.isEnemy ? '#8f0' : (this.isTank ? '#fa0' : '#ff0');
-                ctx.beginPath(); ctx.arc(this.x, this.y, this.isTank ? 4 : 2, 0, Math.PI*2); ctx.fill();
-            }
+            });
+
+            // 4. 배그 리얼 레이더 미니맵 2D 가시화 처리
+            drawMinimap();
         }
 
-        // --- 파티클 시스템 ---
-        class Particle {
-            constructor(x, y, color) { this.x = x; this.y = y; let a = Math.random()*Math.PI*2, s = Math.random()*4; this.vx = Math.cos(a)*s; this.vy = Math.sin(a)*s; this.life = 1; this.color = color; }
-            update() { this.vx *= 0.9; this.vy *= 0.9; this.x += this.vx; this.y += this.vy; this.life -= 0.05; }
-            draw() { ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, 2, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1; }
+        function drawMinimap() {
+            mCtx.clearRect(0, 0, mCanvas.width, mCanvas.height);
+            mCtx.fillStyle = 'rgba(21, 27, 35, 0.8)';
+            mCtx.fillRect(0, 0, mCanvas.width, mCanvas.height);
+
+            let centerX = mCanvas.width / 2;
+            let centerY = mCanvas.height / 2;
+            let zoom = 1.2; // 미니맵 스케일 배율
+
+            // 엄폐물들 미니맵에 표시
+            mCtx.fillStyle = '#4b5563';
+            mapObjects.forEach(o => {
+                let relX = (o.x - player.x) * zoom + centerX;
+                let relZ = (o.z - player.z) * zoom + centerY;
+                if (relX >= 0 && relX <= mCanvas.width && relZ >= 0 && relZ <= mCanvas.height) {
+                    mCtx.beginPath(); mCtx.arc(relX, relZ, 3, 0, Math.PI*2); mCtx.fill();
+                }
+            });
+
+            // 타겟들 미니맵에 표시
+            mCtx.fillStyle = '#f97316';
+            targets.forEach(t => {
+                let relX = (t.x - player.x) * zoom + centerX;
+                let relZ = (t.z - player.z) * zoom + centerY;
+                if (relX >= 0 && relX <= mCanvas.width && relZ >= 0 && relZ <= mCanvas.height) {
+                    mCtx.fillRect(relX - 3, relZ - 3, 6, 6);
+                }
+            });
+
+            // 플레이어 본인 위치 및 시야각 부채꼴 렌더링
+            mCtx.strokeStyle = 'rgba(242, 169, 0, 0.4)';
+            mCtx.fillStyle = 'rgba(242, 169, 0, 0.15)';
+            mCtx.beginPath();
+            mCtx.moveTo(centerX, centerY);
+            mCtx.arc(centerX, centerY, 35, -player.yaw - Math.PI/2 - 0.4, -player.yaw - Math.PI/2 + 0.4);
+            mCtx.lineTo(centerX, centerY);
+            mCtx.fill(); mCtx.stroke();
+
+            mCtx.fillStyle = '#ffffff';
+            mCtx.beginPath(); mCtx.arc(centerX, centerY, 4, 0, Math.PI*2); mCtx.fill();
+            mCtx.strokeStyle = '#000'; mCtx.stroke();
         }
-        function spawnParticles(x, y, color, cnt) { for(let i=0; i<cnt; i++) particles.push(new Particle(x, y, color)); }
-        
-        function createExplosion(x, y, radius, color) {
-            ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI*2); ctx.fill(); ctx.restore();
-        }
 
-        function endGame() { gameActive = false; document.getElementById('gameOver').style.display = 'block'; }
-
-        // 초기 병력 세팅 (마린 12, 메딕 3, 탱크 3)
-        for(let i=0; i<12; i++) units.push(new Unit(canvas.width/2 + (Math.random()-0.5)*100, canvas.height/2 + (Math.random()-0.5)*100, 'marine'));
-        for(let i=0; i<3; i++) units.push(new Unit(canvas.width/2 + (Math.random()-0.5)*100, canvas.height/2 + (Math.random()-0.5)*100, 'medic'));
-        for(let i=0; i<3; i++) units.push(new Unit(canvas.width/2 + (Math.random()-0.5)*100, canvas.height/2 + (Math.random()-0.5)*100, 'tank'));
-
-        // --- 메인 루프 ---
         function loop() {
-            if (!gameActive) return;
-            frameCount++; ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // 적 스폰
-            if (frameCount % Math.max(20, 100 - wave * 5) === 0) enemies.push(new Enemy());
-            if (frameCount % 500 === 0) wave++;
-            
-            document.getElementById('waveTxt').innerText = wave; document.getElementById('killTxt').innerText = kills;
-
-            // 시각 효과 처리 (우클릭 마커, 힐 광선, 드래그 박스)
-            for (let i = moveCommands.length - 1; i >= 0; i--) { let m = moveCommands[i]; ctx.strokeStyle = `rgba(0, 255, 0, ${m.life / 20})`; ctx.beginPath(); ctx.moveTo(m.x - 10, m.y); ctx.lineTo(m.x + 10, m.y); ctx.moveTo(m.x, m.y - 10); ctx.lineTo(m.x, m.y + 10); ctx.stroke(); m.life--; if (m.life <= 0) moveCommands.splice(i, 1); }
-            for (let i = healBeams.length - 1; i >= 0; i--) { let h = healBeams[i]; ctx.strokeStyle = `rgba(255, 255, 255, ${h.life / 10})`; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(h.x1, h.y1); ctx.lineTo(h.x2, h.y2); ctx.stroke(); h.life--; if (h.life <= 0) healBeams.splice(i, 1); }
-            if (isSelecting) { ctx.fillStyle = 'rgba(0, 255, 0, 0.1)'; ctx.strokeStyle = '#0f0'; let w = currentX - startX, h = currentY - startY; ctx.fillRect(startX, startY, w, h); ctx.strokeRect(startX, startY, w, h); }
-
-            // 엔티티 업데이트 루프
-            particles.forEach((p, i) => { p.update(); if (p.life <= 0) particles.splice(i, 1); else p.draw(); });
-            bullets.forEach((b, i) => { b.update(); if (!b.active) bullets.splice(i, 1); else b.draw(); });
-            
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                let e = enemies[i]; e.update();
-                if (e.hp <= 0) { enemies.splice(i, 1); kills++; spawnParticles(e.x, e.y, e.color, 10); } else e.draw();
-            }
-            units.forEach(u => { u.update(); u.draw(); });
-
+            update();
+            draw();
             requestAnimationFrame(loop);
         }
         loop();
