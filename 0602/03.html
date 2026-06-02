@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>요소객체 속성 조작</title>
+ 
+    <script>
+        // textContent, innerHTML
+        window.onload = function(){
+            let img1 = document.getElementById("img1");
+ 
+            // img1.src = "https://placehold.co/300x200";
+            img1.src = "imgs/mm.png";
+            img1.width = 600;
+            img1.height = 400;
+        }
+ 
+        function changeImage() {
+            let img1 = document.getElementById("img1");
+            img1.src = "imgs/다운로드 (1).jpg";
+        }
+    </script>
+</head>
+<body>
+    <button onclick="changeImage()">이미지 변경하기</button>
+    <img id="img1" src="imgs/다운로드 (1).jpg" alt="이미지">
+ <br><br>
+    <img id="img1">
+ 
+</body>
+</html>
