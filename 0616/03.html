@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+   
     <script src="https://code.jquery.com/jquery-4.0.0.js"></script>
     <script>
         $(document).ready(
@@ -11,26 +12,28 @@
                 $("h1").click(
                     function(){
                         $(this).css({
-                            backgroundColor : "red",
+                            background : "red",
                             color : "white",
                             width : "200px",
-                            height : "50px"
+                            height : "50px",
                         });
                     }
                 );
-                    $("h1").dblclick(
-                        function(){
+                $("h1").dblclick(
+                    function(){
                         $(this).css({
                             background : "",
                             color : "",
                         });
                     }
                 );
-            }        )
-        
-        </script>
+               
+            }
+        );
+    </script>
 </head>
 <body>
     <h1>Click Here</h1>
+   
 </body>
 </html>
